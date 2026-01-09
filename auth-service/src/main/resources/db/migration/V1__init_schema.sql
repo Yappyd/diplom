@@ -1,0 +1,6 @@
+CREATE TABLE auth_users (
+    user_id UUID PRIMARY KEY,
+    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
