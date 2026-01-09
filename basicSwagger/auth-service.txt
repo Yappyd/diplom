@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  description: Сервис аутентификации для приложения мессенджера
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081
+    description: Локальное окружение
+
+paths:
+  /auth/verify:
+    post:
+      summary: Проверка номера телефона и аутентификация пользователя
+      description: |
+        Выполняет аутентификацию пользователя по номеру телефона.
+        В текущей версии номер телефона считается подтверждённым автоматически.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Некорректный запрос
+
+  /auth/refresh:
+    post:
+      summary: Обновление access-токена
+      description: Выдаёт новый access-токен и refresh-токен
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Токены успешно обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Недействительный refresh-токен
+
+  /auth/logout:
+    post:
+      summary: Выход пользователя из системы
+      description: Отзывает refresh-токен пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Выход выполнен успешно
+        '401':
+          description: Недействительный refresh-токен
+
+components:
+  schemas:
+    VerifyPhoneRequest:
+      type: object
+      required:
+        - phoneNumber
+      properties:
+        phoneNumber:
+          type: string
+          example: "+79991234567"
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    LogoutRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    AuthResponse:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresAt
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "dGhpcy1pcy1yZWZyZXNoLXRva2Vu"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2026-01-09T15:45:00Z"
