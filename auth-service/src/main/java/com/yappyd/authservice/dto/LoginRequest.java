@@ -3,7 +3,7 @@ package com.yappyd.authservice.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-public record loginRequest(
+public record LoginRequest(
         @NotBlank(message = "PHONE_EMPTY")
         @Pattern(
                 regexp = "^\\+7\\d{10}$",

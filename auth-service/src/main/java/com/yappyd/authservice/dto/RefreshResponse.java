@@ -2,7 +2,7 @@ package com.yappyd.authservice.dto;
 
 import java.time.Instant;
 
-public record loginResponce(
+public record RefreshResponse(
         String accessToken,
         String refreshToken,
         Instant expiresAt
