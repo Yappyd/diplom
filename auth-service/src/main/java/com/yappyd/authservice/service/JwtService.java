@@ -36,8 +36,8 @@ public class JwtService {
     public JwtService(
             RsaKeyProvider keyProvider,
             @Value("${jwt.key-id}") String keyId,
-            @Value("${jwt.access-token-ttl}") Duration accessTtl,
-            @Value("${jwt.refresh-token-ttl}") Duration refreshTtl
+            @Value("${jwt.ttl.access-token}") Duration accessTtl,
+            @Value("${jwt.ttl.refresh-token}") Duration refreshTtl
     ) {
         this.keyProvider = keyProvider;
         this.keyId = keyId;

@@ -1,0 +1,52 @@
+name: diplom
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: diplom-postgres
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/DB_AUTH_PASSWORD
+      POSTGRES_DB: auth_db
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    secrets:
+      - DB_AUTH_PASSWORD
+    restart: unless-stopped
+
+  auth-service:
+    image: yappyd/diplom/auth-service:latest
+    container_name: auth-service
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_AUTH_USER: auth_user
+      AUTH_KEY_ID: auth-key-1
+
+      DB_AUTH_PASSWORD_FILE: /run/secrets/DB_AUTH_PASSWORD
+      JWT_PRIVATE_KEY: /run/secrets/JWT_PRIVATE_KEY
+      JWT_PUBLIC_KEY: /run/secrets/JWT_PUBLIC_KEY
+    secrets:
+      - DB_AUTH_PASSWORD
+      - JWT_PRIVATE_KEY
+      - JWT_PUBLIC_KEY
+    restart: unless-stopped
+
+secrets:
+  DB_AUTH_PASSWORD:
+    file: ./secrets/auth_db/auth_db_password
+  JWT_PRIVATE_KEY:
+    file: ./secrets/keys/private.pem
+  JWT_PUBLIC_KEY:
+    file: ./secrets/keys/public.pem
+
+volumes:
+  pgdata:
