@@ -1,0 +1,302 @@
+openapi: 3.0.3
+
+info:
+  title: User Service API
+  version: 1.2.0
+  description: |
+    User Service отвечает за управление пользовательским профилем
+    и предоставление механизмов поиска пользователей.
+
+    Сервис:
+    - не выполняет аутентификацию
+    - не работает с OTP и refresh-токенами
+    - не открывает и не создаёт чаты
+    - не хранит контакты и социальные связи
+
+    Идентификатор пользователя (userId) передаётся через JWT (claim `sub`)
+    и используется как внешний идентификатор во всей системе.
+
+servers:
+  - url: /api
+    description: API Gateway
+
+tags:
+  - name: Users
+    description: Операции с пользовательским профилем
+  - name: Search
+    description: Поиск пользователей
+  - name: Internal
+    description: Внутренние эндпоинты
+
+paths:
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Получить профиль текущего пользователя
+      description: |
+        Возвращает полный профиль пользователя,
+        идентификатор которого содержится в JWT (claim `sub`).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Профиль пользователя не найден
+
+    put:
+      tags: [Users]
+      summary: Обновить профиль текущего пользователя
+      description: |
+        Обновляет изменяемые поля профиля текущего пользователя.
+        Идентификатор пользователя берётся исключительно из JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: Обновлённый профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Некорректные данные запроса
+        '401':
+          description: Неавторизован
+        '404':
+          description: Профиль пользователя не найден
+        '409':
+          description: Конфликт данных (tag уже занят)
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Получить публичный профиль пользователя по идентификатору
+      description: |
+        Возвращает публичную информацию о пользователе по его userId.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор пользователя (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Публичный профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfileResponse'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Пользователь не найден
+
+  /users/search/by-phone:
+    post:
+      tags: [Search]
+      summary: Найти пользователя по номеру телефона
+      description: |
+        Выполняет разрешение пользователя по номеру телефона.
+
+        Используется для начала диалога или добавления контакта.
+        Номер телефона не возвращается в ответе.
+        Отсутствие пользователя не считается ошибкой.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindUserByPhoneRequest'
+      responses:
+        '200':
+          description: Результат поиска (пользователь найден или нет)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfileResponse'
+        '400':
+          description: Некорректный номер телефона
+        '401':
+          description: Неавторизован
+
+  /users/search/by-tag:
+    get:
+      tags: [Search]
+      summary: Найти пользователя по публичному тегу
+      description: |
+        Выполняет поиск пользователя по публичному уникальному тегу (tag).
+        Тег является осознанно публичным идентификатором.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tag
+          in: query
+          required: true
+          description: Публичный уникальный тег пользователя
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Результат поиска (пользователь найден или нет)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfileResponse'
+        '401':
+          description: Неавторизован
+
+  /internal/users:
+    post:
+      tags: [Internal]
+      summary: Создать профиль пользователя
+      description: |
+        Внутренний эндпоинт для создания профиля пользователя.
+        Используется Auth Service или обработчиками событий.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Пользователь успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Некорректные данные запроса
+        '409':
+          description: Пользователь с таким userId уже существует
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    UserProfileResponse:
+      type: object
+      description: Полный профиль пользователя
+      properties:
+        userId:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+          description: Номер телефона пользователя (E.164)
+        displayName:
+          type: string
+          description: Отображаемое имя пользователя
+        tag:
+          type: string
+          nullable: true
+          description: Публичный уникальный тег пользователя
+        avatarUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - userId
+        - phoneNumber
+        - displayName
+        - createdAt
+        - updatedAt
+
+    PublicUserProfileResponse:
+      type: object
+      description: Публичная информация о пользователе
+      nullable: true
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        tag:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required:
+        - userId
+        - displayName
+
+    UpdateUserProfileRequest:
+      type: object
+      description: Данные для обновления профиля пользователя
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 64
+        tag:
+          type: string
+          minLength: 3
+          maxLength: 32
+        avatarUrl:
+          type: string
+          format: uri
+
+    FindUserByPhoneRequest:
+      type: object
+      description: Запрос поиска пользователя по номеру телефона
+      properties:
+        phoneNumber:
+          type: string
+          description: Номер телефона в формате E.164
+      required:
+        - phoneNumber
+
+    CreateUserRequest:
+      type: object
+      description: Запрос на создание профиля пользователя
+      properties:
+        userId:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+        displayName:
+          type: string
+        tag:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required:
+        - userId
+        - phoneNumber
+        - displayName
