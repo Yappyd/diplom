@@ -2,16 +2,24 @@ openapi: 3.0.3
 
 info:
   title: User Service API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     User Service отвечает за управление пользовательским профилем
-    и предоставление механизмов поиска пользователей.
+    и предоставляет справочные данные о пользователях другим компонентам системы.
+
+    Архитектурная роль сервиса:
+    - является источником истины для пользовательских профилей
+    - предоставляет данные профиля по userId, телефону или публичному тегу
+    - используется как справочник профилей (profile directory)
+    - не агрегирует данные для UI
+    - не знает о чатах, диалогах и социальных связях
 
     Сервис:
     - не выполняет аутентификацию
     - не работает с OTP и refresh-токенами
     - не открывает и не создаёт чаты
     - не хранит контакты и социальные связи
+    - не определяет отображаемое имя или аватар чата
 
     Идентификатор пользователя (userId) передаётся через JWT (claim `sub`)
     и используется как внешний идентификатор во всей системе.
@@ -25,6 +33,8 @@ tags:
     description: Операции с пользовательским профилем
   - name: Search
     description: Поиск пользователей
+  - name: Batch
+    description: Пакетное получение профилей пользователей
   - name: Internal
     description: Внутренние эндпоинты
 
@@ -37,6 +47,8 @@ paths:
       description: |
         Возвращает полный профиль пользователя,
         идентификатор которого содержится в JWT (claim `sub`).
+
+        Используется для отображения и редактирования собственного профиля.
       security:
         - bearerAuth: []
       responses:
@@ -57,6 +69,8 @@ paths:
       description: |
         Обновляет изменяемые поля профиля текущего пользователя.
         Идентификатор пользователя берётся исключительно из JWT.
+
+        Используется, в том числе, для завершения первичного заполнения профиля.
       security:
         - bearerAuth: []
       requestBody:
@@ -87,6 +101,9 @@ paths:
       summary: Получить публичный профиль пользователя по идентификатору
       description: |
         Возвращает публичную информацию о пользователе по его userId.
+
+        Используется для отображения информации о других пользователях
+        (например, в списке участников чата).
       security:
         - bearerAuth: []
       parameters:
@@ -108,6 +125,37 @@ paths:
           description: Неавторизован
         '404':
           description: Пользователь не найден
+
+  /users/batch:
+    post:
+      tags: [Batch]
+      summary: Получить профили пользователей по списку идентификаторов
+      description: |
+        Возвращает публичные профили пользователей по списку userId.
+
+        Используется для пакетного получения данных участников чатов
+        и других сценариев, где требуется избежать N+1 запросов.
+
+        Сервис не выполняет агрегацию данных и не учитывает контекст чатов.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUsersRequest'
+      responses:
+        '200':
+          description: Карта профилей пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUsersResponse'
+        '400':
+          description: Некорректные данные запроса
+        '401':
+          description: Неавторизован
 
   /users/search/by-phone:
     post:
@@ -145,7 +193,7 @@ paths:
       summary: Найти пользователя по публичному тегу
       description: |
         Выполняет поиск пользователя по публичному уникальному тегу (tag).
-        Тег является осознанно публичным идентификатором.
+        Поиск не зависит от регистра.
       security:
         - bearerAuth: []
       parameters:
@@ -171,7 +219,9 @@ paths:
       summary: Создать профиль пользователя
       description: |
         Внутренний эндпоинт для создания профиля пользователя.
-        Используется Auth Service или обработчиками событий.
+
+        Используется Auth Service или обработчиками событий
+        при успешной регистрации пользователя.
       requestBody:
         required: true
         content:
@@ -199,6 +249,26 @@ components:
       bearerFormat: JWT
 
   schemas:
+
+    BatchUsersRequest:
+      type: object
+      description: Запрос на пакетное получение профилей пользователей
+      properties:
+        userIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - userIds
+
+    BatchUsersResponse:
+      type: object
+      description: |
+        Карта профилей пользователей, где ключ — userId.
+        Используется для последующей агрегации на клиенте.
+      additionalProperties:
+        $ref: '#/components/schemas/PublicUserProfileResponse'
 
     UserProfileResponse:
       type: object
