@@ -16,7 +16,7 @@ RUN ./mvnw package -DskipTests
 
 
 #RUNTIME STAGE
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 

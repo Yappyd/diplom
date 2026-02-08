@@ -19,6 +19,21 @@ services:
       - DB_USER_PASSWORD
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:4.2.3-management
+    container_name: diplom-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbitmq_user
+      RABBITMQ_DEFAULT_PASS: qweq
+    secrets:
+      - RABBITMQ_PASSWORD
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+
   auth-service:
     image: yappyd/diplom/auth-service:latest
     container_name: auth-service
@@ -42,12 +57,15 @@ secrets:
   POSTGRES_ADMIN_PASSWORD:
     file: ./secrets/postgres/admin_password
   DB_AUTH_PASSWORD:
-    file: ./secrets/auth_db/auth_db_password
+    file: ./secrets/postgres/auth_db/auth_db_password
   DB_USER_PASSWORD:
-    file: ./secrets/user_db/user_db_password
+    file: ./secrets/postgres/user_db/user_db_password
+  RABBITMQ_PASSWORD:
+    file: ./secrets/rabbitmq/rabbitmq_password
   JWT_PRIVATE_KEY:
     file: ./secrets/keys/private.pem
   JWT_PUBLIC_KEY:
     file: ./secrets/keys/public.pem
 volumes:
   pgdata:
+  rabbitmq-data:

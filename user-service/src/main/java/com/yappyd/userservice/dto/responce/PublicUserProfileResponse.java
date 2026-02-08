@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public record PublicUserProfileResponse(
         UUID userId,
-        String PhoneNumber,
+        String phoneNumber,
         String tag,
         String firstName,
         String lastName
