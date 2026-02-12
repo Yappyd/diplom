@@ -28,6 +28,7 @@ buildNumber.properties
 # Environment variables / secrets
 .env
 **/.env
+/env
 
 # Logs and JVM crash files
 logs/

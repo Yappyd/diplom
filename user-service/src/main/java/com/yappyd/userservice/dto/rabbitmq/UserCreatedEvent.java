@@ -1,0 +1,11 @@
+package com.yappyd.userservice.dto.rabbitmq;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+public record UserCreatedEvent(
+        UUID userId,
+        String PhoneNumber,
+        OffsetDateTime createdAt
+) {
+}
