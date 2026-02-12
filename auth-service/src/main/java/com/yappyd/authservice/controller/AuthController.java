@@ -1,9 +1,9 @@
 package com.yappyd.authservice.controller;
 
-import com.yappyd.authservice.dto.LoginRequest;
-import com.yappyd.authservice.dto.LoginResponse;
-import com.yappyd.authservice.dto.RefreshRequest;
-import com.yappyd.authservice.dto.RefreshResponse;
+import com.yappyd.authservice.dto.request.LoginRequest;
+import com.yappyd.authservice.dto.response.LoginResponse;
+import com.yappyd.authservice.dto.request.RefreshRequest;
+import com.yappyd.authservice.dto.response.RefreshResponse;
 import com.yappyd.authservice.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;

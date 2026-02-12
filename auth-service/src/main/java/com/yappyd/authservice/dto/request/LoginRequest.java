@@ -1,4 +1,4 @@
-package com.yappyd.authservice.dto;
+package com.yappyd.authservice.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

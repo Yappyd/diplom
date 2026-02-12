@@ -1,4 +1,4 @@
-package com.yappyd.authservice.dto;
+package com.yappyd.authservice.dto.response;
 
 import java.time.Instant;
 

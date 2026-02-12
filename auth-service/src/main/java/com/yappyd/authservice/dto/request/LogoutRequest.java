@@ -1,8 +1,8 @@
-package com.yappyd.authservice.dto;
+package com.yappyd.authservice.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record RefreshRequest(
+public record LogoutRequest(
         @NotBlank(message = "REFRESH_TOKEN_EMPTY")
         String refreshToken
 ) {

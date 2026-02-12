@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -27,7 +28,7 @@ public class AuthUser {
     private boolean isActive;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
-    private Instant createdAt;
+    private OffsetDateTime createdAt;
 
     public AuthUser(UUID id, String phoneNumber) {
         this.id = id;

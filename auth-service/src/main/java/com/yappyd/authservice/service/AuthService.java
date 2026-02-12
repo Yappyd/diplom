@@ -1,7 +1,7 @@
 package com.yappyd.authservice.service;
 
-import com.yappyd.authservice.dto.LoginResponse;
-import com.yappyd.authservice.dto.RefreshResponse;
+import com.yappyd.authservice.dto.response.LoginResponse;
+import com.yappyd.authservice.dto.response.RefreshResponse;
 import com.yappyd.authservice.exception.UserDeactivatedException;
 import com.yappyd.authservice.exception.UserNotFoundException;
 import com.yappyd.authservice.model.AuthUser;

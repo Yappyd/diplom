@@ -1,6 +1,6 @@
 package com.yappyd.authservice.controller;
 
-import com.yappyd.authservice.dto.ErrorResponse;
+import com.yappyd.authservice.dto.response.ErrorResponse;
 import com.yappyd.authservice.exception.RefreshTokenException;
 import com.yappyd.authservice.exception.UserDeactivatedException;
 import com.yappyd.authservice.exception.UserNotFoundException;

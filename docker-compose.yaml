@@ -26,10 +26,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: rabbitmq_user
-      RABBITMQ_DEFAULT_PASS: qweq
-    secrets:
-      - RABBITMQ_PASSWORD
+      RABBITMQ_DEFAULT_USER: rabbit
+      RABBITMQ_DEFAULT_PASS: rabbit
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     restart: unless-stopped
@@ -61,8 +59,6 @@ secrets:
     file: ./secrets/postgres/auth_db/auth_db_password
   DB_USER_PASSWORD:
     file: ./secrets/postgres/user_db/user_db_password
-  RABBITMQ_PASSWORD:
-    file: ./secrets/rabbitmq/rabbitmq_password
   JWT_PRIVATE_KEY:
     file: ./secrets/keys/private.pem
   JWT_PUBLIC_KEY:
