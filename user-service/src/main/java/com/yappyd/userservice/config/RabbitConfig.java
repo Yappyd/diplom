@@ -13,6 +13,7 @@ public class RabbitConfig {
 
     public static final String AUTH_EVENTS_EXCHANGE = "auth.events";
     public static final String USER_CREATED_QUEUE = "user.profile.creation.queue";
+    public static final String ROUTING_KEY = "user.created";
 
     @Bean
     public Queue userCreatedQueue() {
@@ -34,7 +35,7 @@ public class RabbitConfig {
         return BindingBuilder
                 .bind(userCreatedQueue)
                 .to(authEventsExchange)
-                .with("user.created");
+                .with(ROUTING_KEY);
     }
 
     @Bean

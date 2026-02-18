@@ -34,6 +34,7 @@ public class AuthUser {
         this.id = id;
         this.phoneNumber = phoneNumber;
         this.isActive = true;
+        this.createdAt= OffsetDateTime.now();
     }
 
     public void deactivate() {

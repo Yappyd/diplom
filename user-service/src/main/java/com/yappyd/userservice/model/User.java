@@ -25,7 +25,7 @@ public class User {
     private String phoneNumber;
 
     @Setter
-    @Column(name = "first_name", nullable = false, length = 64)
+    @Column(name = "first_name", length = 64)
     private String firstName;
 
     @Setter
@@ -51,8 +51,12 @@ public class User {
     @Column(name = "phone_is_visible", nullable = false)
     private boolean phoneIsVisible;
 
-    public User(UUID id, String phoneNumber) {
+    public User(UUID id, String phoneNumber, OffsetDateTime createdAt) {
         this.id = id;
         this.phoneNumber = phoneNumber;
+        this.createdAt = createdAt;
+        this.updatedAt=OffsetDateTime.now();
+        profileCompleted = false;
+        phoneIsVisible = true;
     }
 }
