@@ -25,5 +25,4 @@ public class UserCreatedListener {
 
         channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
     }
-
 }
