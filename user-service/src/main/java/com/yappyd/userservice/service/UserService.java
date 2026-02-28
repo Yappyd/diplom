@@ -48,7 +48,7 @@ public class UserService {
     }
 
     public List<User> getBatchUsers(List<UUID> userIds) {
-        return userRepository.findAllById(userIds);
+        return userRepository.findByIdInAndProfileCompletedTrue(userIds);
     }
 
     private User findUserById(UUID userId) {

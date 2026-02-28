@@ -2,6 +2,7 @@ package com.yappyd.userservice.controller;
 
 import com.yappyd.userservice.component.UserMapper;
 import com.yappyd.userservice.dto.request.BatchUsersRequest;
+import com.yappyd.userservice.dto.request.CompleteProfileRequest;
 import com.yappyd.userservice.dto.request.FindByPhoneRequest;
 import com.yappyd.userservice.dto.request.UpdateUserProfileRequest;
 import com.yappyd.userservice.dto.responce.BatchUsersResponse;
@@ -10,6 +11,7 @@ import com.yappyd.userservice.dto.responce.PublicUserProfileResponse;
 import com.yappyd.userservice.model.User;
 import com.yappyd.userservice.service.UserService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
@@ -72,5 +74,12 @@ public class UserController {
     public ResponseEntity<BatchUsersResponse> getBatchUsers(@Valid @RequestBody BatchUsersRequest request) {
         List<User> users = userService.getBatchUsers(request.userIds());
         return ResponseEntity.ok(userMapper.toBatch(users));
+    }
+
+    @PostMapping("/complete-profile")
+    public ResponseEntity<CurrentUserProfileResponse> completeProfile(@AuthenticationPrincipal Jwt jwt, @RequestBody CompleteProfileRequest request) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        User user = userService.completeProfile(userId, request.firstName());
+        return ResponseEntity.ok(userMapper.toCurrentUserProfile(user));
     }
 }
