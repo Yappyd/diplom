@@ -17,6 +17,7 @@ services:
       - POSTGRES_ADMIN_PASSWORD
       - DB_AUTH_PASSWORD
       - DB_USER_PASSWORD
+      - DB_CHAT_PASSWORD
     restart: unless-stopped
 
   rabbitmq:
@@ -59,6 +60,8 @@ secrets:
     file: ./secrets/postgres/auth_db/auth_db_password
   DB_USER_PASSWORD:
     file: ./secrets/postgres/user_db/user_db_password
+  DB_CHAT_PASSWORD:
+    file: ./secrets/postgres/chat_db/chat_db_password
   JWT_PRIVATE_KEY:
     file: ./secrets/keys/private.pem
   JWT_PUBLIC_KEY:
