@@ -1,5 +1,7 @@
 package com.yappyd.chatservice.model;
 
+import com.yappyd.chatservice.exception.InvalidPrivateChatException;
+import com.yappyd.chatservice.exception.PrivateChatWithSelfException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -29,16 +31,16 @@ public class PrivateChat {
 
     public PrivateChat(UUID chatId, UUID user1, UUID user2) {
         if (chatId == null) {
-            //TODO custom exception
+            throw new InvalidPrivateChatException("chatId must not be null");
         }
         if (user1 == null || user2 == null) {
-            //TODO custom exception
+            throw new InvalidPrivateChatException("user1 and user2 must not be null");
         }
         if (user1.equals(user2)) {
-            //TODO custom exception
+            throw new PrivateChatWithSelfException();
         }
         this.chatId = chatId;
-        if (user1.compareTo(user2) < 0) {
+        if (user1.toString().compareTo(user2.toString()) < 0) {
             this.userA = user1;
             this.userB = user2;
         } else {

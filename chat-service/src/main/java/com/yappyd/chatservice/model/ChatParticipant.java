@@ -1,6 +1,7 @@
 package com.yappyd.chatservice.model;
 
 import com.yappyd.chatservice.enums.ParticipantRole;
+import com.yappyd.chatservice.exception.InvalidChatParticipantException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -31,8 +32,10 @@ public class ChatParticipant {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    @Column(name = "left_at")
-    private OffsetDateTime leftAt;
+    @PrePersist
+    private void prePersist() {
+        this.updatedAt = OffsetDateTime.now();
+    }
 
     @PreUpdate
     private void preUpdate() {
@@ -41,10 +44,10 @@ public class ChatParticipant {
 
     public ChatParticipant(UUID chatId, UUID userId, ParticipantRole role) {
         if (chatId == null || userId == null) {
-            //TODO custom exception
+            throw new InvalidChatParticipantException("chatId and userId must not be null");
         }
         if (role == null) {
-            //TODO custom exception
+            throw new InvalidChatParticipantException("participant role must not be null");
         }
         this.id = new ChatParticipantId(chatId, userId);
         this.role = role;
@@ -52,23 +55,9 @@ public class ChatParticipant {
 
     public void updateProfile(ParticipantRole role, String nickname) {
         if (role == null) {
-            //TODO custom exception
+            throw new InvalidChatParticipantException("participant role must not be null");
         }
         this.role = role;
         this.nickname = (nickname == null || nickname.isBlank()) ? null : nickname.trim();
-    }
-
-    public void leave() {
-        if (this.leftAt != null) {
-            //TODO exception
-        }
-        this.leftAt = OffsetDateTime.now();
-    }
-
-    public void rejoin() {
-        if (this.leftAt == null) {
-            //TODO exception
-        }
-        this.leftAt = null;
     }
 }

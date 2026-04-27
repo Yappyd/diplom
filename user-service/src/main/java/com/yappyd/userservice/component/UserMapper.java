@@ -1,8 +1,8 @@
 package com.yappyd.userservice.component;
 
-import com.yappyd.userservice.dto.responce.BatchUsersResponse;
-import com.yappyd.userservice.dto.responce.CurrentUserProfileResponse;
-import com.yappyd.userservice.dto.responce.PublicUserProfileResponse;
+import com.yappyd.userservice.dto.response.BatchUsersResponse;
+import com.yappyd.userservice.dto.response.CurrentUserProfileResponse;
+import com.yappyd.userservice.dto.response.PublicUserProfileResponse;
 import com.yappyd.userservice.model.User;
 import org.springframework.stereotype.Component;
 

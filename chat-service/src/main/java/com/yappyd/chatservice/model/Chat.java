@@ -1,6 +1,8 @@
 package com.yappyd.chatservice.model;
 
 import com.yappyd.chatservice.enums.ChatType;
+import com.yappyd.chatservice.exception.InvalidChatException;
+import com.yappyd.chatservice.exception.PrivateChatTitleUpdateNotAllowedException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -40,9 +42,14 @@ public class Chat {
         this.updatedAt = OffsetDateTime.now();
     }
 
+    @PrePersist
+    private void prePersist() {
+        this.updatedAt = OffsetDateTime.now();
+    }
+
     public static Chat createPrivateChat(UUID createdBy) {
         if (createdBy == null) {
-            //TODO custom exception
+            throw new InvalidChatException("createdBy must not be null");
         }
         Chat chat = new Chat();
         chat.id = UUID.randomUUID();
@@ -53,10 +60,10 @@ public class Chat {
 
     public static Chat createGroupChat(UUID createdBy, String title) {
         if (title == null || title.isBlank()) {
-            //TODO custom exception
+            throw new InvalidChatException("title must not be null or blank");
         }
         if (createdBy == null) {
-            //TODO custom exception
+            throw new InvalidChatException("createdBy must not be null");
         }
         Chat chat = new Chat();
         chat.id = UUID.randomUUID();
@@ -68,10 +75,10 @@ public class Chat {
 
     public void updateTitle(String title) {
         if (this.type == ChatType.PRIVATE) {
-            //TODO custom exception
+            throw new PrivateChatTitleUpdateNotAllowedException();
         }
         if (title == null || title.isBlank()) {
-            //TODO custom exception
+            throw new InvalidChatException("title must not be null or blank");
         }
         this.title = title.trim();
     }

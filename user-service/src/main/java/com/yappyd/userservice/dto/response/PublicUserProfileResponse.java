@@ -1,4 +1,4 @@
-package com.yappyd.userservice.dto.responce;
+package com.yappyd.userservice.dto.response;
 
 import java.util.UUID;
 

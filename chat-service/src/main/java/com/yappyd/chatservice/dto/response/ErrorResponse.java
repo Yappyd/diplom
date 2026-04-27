@@ -1,4 +1,4 @@
-package com.yappyd.userservice.dto.responce;
+package com.yappyd.chatservice.dto.response;
 
 import java.time.Instant;
 
@@ -7,7 +7,6 @@ public record ErrorResponse(
         String message,
         int status,
         String path,
-        Instant Timestamp
+        Instant timestamp
 ) {
 }
-

@@ -7,8 +7,6 @@ CREATE TABLE chat_participants
 
     joined_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    left_at    TIMESTAMPTZ,
 
-    PRIMARY KEY (chat_id, user_id),
-    CHECK (left_at IS NULL OR left_at >= joined_at)
+    PRIMARY KEY (chat_id, user_id)
 );

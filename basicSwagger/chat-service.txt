@@ -1,0 +1,826 @@
+openapi: 3.0.3
+
+info:
+  title: Chat Service API
+  version: 1.0.0
+  description: |
+    Сервис управления чатами.
+
+    Chat Service отвечает за:
+      - создание приватных и групповых чатов;
+      - хранение структуры чатов;
+      - хранение состава групповых чатов;
+      - управление ролями участников групповых чатов;
+      - проверку принадлежности пользователя к чату.
+
+    Важно:
+      - Chat Service не хранит сообщения;
+      - Chat Service не хранит профили пользователей;
+      - для приватных чатов участники хранятся в таблице private_chats;
+      - для групповых чатов участники хранятся в таблице chat_participants;
+      - текущий пользователь всегда определяется по JWT, а не передаётся в теле запроса.
+
+servers:
+  - url: http://localhost:8080
+    description: Локальное окружение
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Chats
+    description: Операции с чатами
+  - name: Private Chats
+    description: Операции с приватными чатами
+  - name: Group Chats
+    description: Операции с групповыми чатами
+  - name: Participants
+    description: Управление участниками групповых чатов
+
+paths:
+
+  /chats:
+    get:
+      tags:
+        - Chats
+      summary: Получить список чатов текущего пользователя
+      description: |
+        Возвращает список чатов, доступных текущему пользователю.
+
+        Для PRIVATE-чатов доступ проверяется по таблице private_chats:
+        пользователь должен быть user_a или user_b.
+
+        Для GROUP-чатов доступ проверяется по таблице chat_participants:
+        пользователь должен быть участником группового чата.
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы, начиная с 0
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+        - name: size
+          in: query
+          description: Размер страницы
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Список чатов текущего пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatListResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/{chatId}:
+    get:
+      tags:
+        - Chats
+      summary: Получить чат по ID
+      description: |
+        Возвращает информацию о чате, если текущий пользователь имеет к нему доступ.
+
+        Для PRIVATE-чата пользователь должен быть одним из двух участников.
+        Для GROUP-чата пользователь должен находиться в chat_participants.
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Данные чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Пользователь не имеет доступа к этому чату
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - Group Chats
+      summary: Обновить групповой чат
+      description: |
+        Обновляет данные группового чата.
+
+        Операция доступна только для GROUP-чата.
+        Для PRIVATE-чата изменение названия не предусмотрено.
+
+        Требуемая роль текущего пользователя:
+          - OWNER
+          - ADMIN
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        description: Новые данные группового чата
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChatRequest'
+      responses:
+        '200':
+          description: Чат обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Некорректный запрос или операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Group Chats
+      summary: Удалить групповой чат
+      description: |
+        Удаляет групповой чат.
+
+        Операция доступна только для GROUP-чата.
+        PRIVATE-чаты не удаляются через этот endpoint.
+
+        Требуемая роль текущего пользователя:
+          - OWNER
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '204':
+          description: Чат удалён
+        '400':
+          description: Операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/private:
+    post:
+      tags:
+        - Private Chats
+      summary: Создать или получить приватный чат
+      description: |
+        Создаёт приватный чат между текущим пользователем и указанным пользователем.
+
+        Если приватный чат между этой парой пользователей уже существует,
+        сервис возвращает идентификатор существующего чата.
+
+        Операция идемпотентна:
+        повторный запрос с тем же targetUserId вернёт тот же chatId.
+
+        Текущий пользователь определяется по JWT.
+        В теле запроса передаётся только targetUserId — пользователь,
+        с которым нужно открыть приватный чат.
+      requestBody:
+        required: true
+        description: Пользователь, с которым нужно создать или получить приватный чат
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrivateChatRequest'
+      responses:
+        '200':
+          description: Идентификатор существующего или нового приватного чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePrivateChatResponse'
+        '400':
+          description: Некорректный запрос, например попытка создать чат с самим собой
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/group:
+    post:
+      tags:
+        - Group Chats
+      summary: Создать групповой чат
+      description: |
+        Создаёт новый групповой чат.
+
+        Текущий пользователь становится OWNER группового чата.
+        Указанные в запросе пользователи добавляются как MEMBER.
+
+        Текущий пользователь определяется по JWT и не должен передаваться в body.
+      requestBody:
+        required: true
+        description: Данные нового группового чата
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupChatRequest'
+      responses:
+        '201':
+          description: Групповой чат создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/{chatId}/participants:
+    get:
+      tags:
+        - Participants
+      summary: Получить участников группового чата
+      description: |
+        Возвращает список участников группового чата.
+
+        Endpoint предназначен только для GROUP-чатов.
+        Для PRIVATE-чатов участники определяются через private_chats,
+        поэтому этот endpoint для них не используется.
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Список участников группового чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantsResponse'
+        '400':
+          description: Операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Пользователь не имеет доступа к этому чату
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Participants
+      summary: Добавить участника в групповой чат
+      description: |
+        Добавляет пользователя в групповой чат.
+
+        Endpoint предназначен только для GROUP-чатов.
+
+        Требуемая роль текущего пользователя:
+          - OWNER
+          - ADMIN
+
+        Добавляемый пользователь получает роль MEMBER.
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        description: Пользователь для добавления в групповой чат
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddParticipantRequest'
+      responses:
+        '204':
+          description: Участник добавлен
+        '400':
+          description: Некорректный запрос или операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Пользователь уже является участником группового чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/{chatId}/participants/{userId}:
+    delete:
+      tags:
+        - Participants
+      summary: Удалить участника из группового чата или выйти из него
+      description: |
+        Удаляет участника из группового чата.
+
+        Endpoint предназначен только для GROUP-чатов.
+        Из PRIVATE-чата выйти нельзя.
+
+        Если userId совпадает с текущим пользователем,
+        операция означает выход из группового чата.
+
+        Если userId не совпадает с текущим пользователем,
+        операция означает удаление другого участника.
+
+        Требуемые права:
+          - пользователь может удалить сам себя;
+          - ADMIN может удалить MEMBER;
+          - OWNER может удалить ADMIN и MEMBER;
+          - OWNER не должен быть удалён, если он последний OWNER в чате.
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Участник удалён
+        '400':
+          description: Некорректный запрос или операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат или участник не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция нарушает правила чата, например нельзя удалить последнего OWNER
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chats/{chatId}/participants/{userId}/role:
+    patch:
+      tags:
+        - Participants
+      summary: Изменить роль участника группового чата
+      description: |
+        Изменяет роль участника группового чата.
+
+        Endpoint предназначен только для GROUP-чатов.
+        В PRIVATE-чатах ролей участников нет.
+
+        Требуемая роль текущего пользователя:
+          - OWNER
+
+        Ограничения:
+          - нельзя изменить роль пользователя, который не является участником чата;
+          - нельзя оставить групповой чат без OWNER.
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        description: Новая роль участника
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRoleRequest'
+      responses:
+        '204':
+          description: Роль обновлена
+        '400':
+          description: Некорректный запрос или операция недоступна для PRIVATE-чата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат или участник не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция нарушает правила чата, например нельзя убрать последнего OWNER
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+
+    ChatId:
+      name: chatId
+      in: path
+      required: true
+      description: Идентификатор чата
+      schema:
+        type: string
+        format: uuid
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Идентификатор пользователя
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    ChatType:
+      type: string
+      description: Тип чата
+      enum:
+        - PRIVATE
+        - GROUP
+      example: PRIVATE
+
+    ParticipantRole:
+      type: string
+      description: Роль пользователя в групповом чате
+      enum:
+        - OWNER
+        - ADMIN
+        - MEMBER
+      example: MEMBER
+
+    CreatePrivateChatRequest:
+      type: object
+      description: Запрос на создание или получение приватного чата
+      required:
+        - targetUserId
+      properties:
+        targetUserId:
+          type: string
+          format: uuid
+          description: Пользователь, с которым нужно создать или получить приватный чат
+          example: 11111111-1111-1111-1111-111111111111
+
+    CreatePrivateChatResponse:
+      type: object
+      description: Ответ на создание или получение приватного чата
+      required:
+        - chatId
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор существующего или нового приватного чата
+          example: 22222222-2222-2222-2222-222222222222
+
+    CreateGroupChatRequest:
+      type: object
+      description: Запрос на создание группового чата
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Название группового чата
+          minLength: 1
+          maxLength: 255
+          example: Команда проекта
+        participantIds:
+          type: array
+          description: |
+            Пользователи, которых нужно добавить в групповой чат как MEMBER.
+            Текущего пользователя указывать не нужно — он будет добавлен автоматически как OWNER.
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          example:
+            - 11111111-1111-1111-1111-111111111111
+            - 22222222-2222-2222-2222-222222222222
+
+    UpdateChatRequest:
+      type: object
+      description: Запрос на обновление группового чата
+      properties:
+        title:
+          type: string
+          description: Новое название группового чата
+          minLength: 1
+          maxLength: 255
+          example: Новое название группы
+
+    AddParticipantRequest:
+      type: object
+      description: Запрос на добавление участника в групповой чат
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Идентификатор пользователя, которого нужно добавить
+          example: 11111111-1111-1111-1111-111111111111
+
+    ChangeRoleRequest:
+      type: object
+      description: Запрос на изменение роли участника группового чата
+      required:
+        - role
+      properties:
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+
+    ChatResponse:
+      type: object
+      description: Информация о чате
+      required:
+        - chatId
+        - type
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата
+          example: 22222222-2222-2222-2222-222222222222
+        type:
+          $ref: '#/components/schemas/ChatType'
+        title:
+          type: string
+          nullable: true
+          description: |
+            Название чата.
+            Для GROUP-чата обязательно.
+            Для PRIVATE-чата обычно null.
+          example: Команда проекта
+        createdBy:
+          type: string
+          format: uuid
+          description: Пользователь, создавший чат
+          example: 33333333-3333-3333-3333-333333333333
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания чата
+          example: 2026-04-26T12:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата и время последнего обновления чата
+          example: 2026-04-26T12:30:00Z
+        privateChat:
+          allOf:
+            - $ref: '#/components/schemas/PrivateChatInfo'
+          nullable: true
+          description: |
+            Данные приватного чата.
+            Заполняется только для PRIVATE-чата.
+
+    PrivateChatInfo:
+      type: object
+      description: Информация о паре пользователей в приватном чате
+      required:
+        - userA
+        - userB
+      properties:
+        userA:
+          type: string
+          format: uuid
+          description: Первый пользователь нормализованной пары
+          example: 11111111-1111-1111-1111-111111111111
+        userB:
+          type: string
+          format: uuid
+          description: Второй пользователь нормализованной пары
+          example: 22222222-2222-2222-2222-222222222222
+
+    ChatListResponse:
+      type: object
+      description: Список чатов текущего пользователя
+      required:
+        - chats
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        chats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatResponse'
+        page:
+          type: integer
+          description: Номер текущей страницы
+          example: 0
+        size:
+          type: integer
+          description: Размер страницы
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          description: Общее количество элементов
+          example: 42
+        totalPages:
+          type: integer
+          description: Общее количество страниц
+          example: 3
+
+    ParticipantResponse:
+      type: object
+      description: Участник группового чата
+      required:
+        - userId
+        - role
+        - joinedAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Идентификатор пользователя
+          example: 11111111-1111-1111-1111-111111111111
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        nickname:
+          type: string
+          nullable: true
+          description: Локальный никнейм пользователя в групповом чате
+          example: Backend Lead
+        joinedAt:
+          type: string
+          format: date-time
+          description: Дата и время добавления в групповой чат
+          example: 2026-04-26T12:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата и время последнего обновления участника
+          example: 2026-04-26T12:30:00Z
+
+    ParticipantsResponse:
+      type: object
+      description: Список участников группового чата
+      required:
+        - participants
+      properties:
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantResponse'
+
+    ErrorResponse:
+      type: object
+      description: Ошибка API
+      required:
+        - status
+        - error
+        - message
+        - timestamp
+      properties:
+        status:
+          type: integer
+          description: HTTP-статус ошибки
+          example: 400
+        error:
+          type: string
+          description: Краткое название ошибки
+          example: Bad Request
+        message:
+          type: string
+          description: Подробное описание ошибки
+          example: Cannot create private chat with yourself
+        path:
+          type: string
+          description: Путь запроса
+          example: /chats/private
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки
+          example: 2026-04-26T12:00:00Z

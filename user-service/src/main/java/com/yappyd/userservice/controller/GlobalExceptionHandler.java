@@ -1,6 +1,6 @@
 package com.yappyd.userservice.controller;
 
-import com.yappyd.userservice.dto.responce.ErrorResponse;
+import com.yappyd.userservice.dto.response.ErrorResponse;
 import com.yappyd.userservice.exception.InvalidProfileDataException;
 import com.yappyd.userservice.exception.ProfileAlreadyCompletedException;
 import com.yappyd.userservice.exception.ProfileNotCompletedException;
