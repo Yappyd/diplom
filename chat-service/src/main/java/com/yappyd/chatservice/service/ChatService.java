@@ -1,7 +1,9 @@
 package com.yappyd.chatservice.service;
 
-import com.yappyd.chatservice.exception.InvalidPrivateChatException;
-import com.yappyd.chatservice.exception.PrivateChatWithSelfException;
+import com.yappyd.chatservice.dto.response.ChatListResponse;
+import com.yappyd.chatservice.dto.response.ChatResponse;
+import com.yappyd.chatservice.enums.ChatType;
+import com.yappyd.chatservice.exception.*;
 import com.yappyd.chatservice.model.Chat;
 import com.yappyd.chatservice.model.PrivateChat;
 import com.yappyd.chatservice.repository.ChatRepository;
@@ -11,7 +13,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -69,11 +75,7 @@ public class ChatService {
                 Chat chat = Chat.createPrivateChat(currentUserId);
                 chatRepository.save(chat);
 
-                PrivateChat privateChat = new PrivateChat(
-                        chat.getId(),
-                        pair.userA(),
-                        pair.userB()
-                );
+                PrivateChat privateChat = new PrivateChat(chat.getId(), pair.userA(), pair.userB());
                 privateChatRepository.save(privateChat);
 
                 return chat.getId();
@@ -84,5 +86,85 @@ public class ChatService {
                     .map(PrivateChat::getChatId)
                     .orElseThrow(() -> ex);
         }
+    }
+
+    public ChatListResponse getChats(UUID currentUserId) {
+        if (currentUserId == null) {
+            throw new InvalidChatException("currentUserId must not be null");
+        }
+
+        List<PrivateChat> privateChats = privateChatRepository.findByUserAOrUserB(currentUserId, currentUserId);
+
+        if (privateChats.isEmpty()) {
+            return new ChatListResponse(List.of());
+        }
+
+        Map<UUID, PrivateChat> privateChatByChatId = privateChats.stream()
+                .collect(Collectors.toMap(
+                        PrivateChat::getChatId,
+                        Function.identity()
+                ));
+
+        List<UUID> chatIds = privateChats.stream()
+                .map(PrivateChat::getChatId)
+                .toList();
+
+        List<Chat> chats = chatRepository.findByIdInOrderByUpdatedAtDesc(chatIds);
+
+        List<ChatResponse> chatResponses = chats.stream()
+                .map(chat -> toChatResponse(chat, privateChatByChatId.get(chat.getId())))
+                .toList();
+
+        return new ChatListResponse(chatResponses);
+    }
+
+    public ChatResponse getChat(UUID currentUserId, UUID chatId) {
+        if (currentUserId == null) {
+            throw new InvalidChatException("currentUserId must not be null");
+        }
+
+        if (chatId == null) {
+            throw new InvalidChatException("chatId must not be null");
+        }
+
+        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ChatNotFoundException(chatId));
+
+        if (chat.getType() == ChatType.PRIVATE) {
+            return getPrivateChatResponse(currentUserId, chat);
+        }
+
+        throw new InvalidChatException("Unsupported chat type: " + chat.getType());
+    }
+
+    private ChatResponse toChatResponse(Chat chat, PrivateChat privateChat) {
+        if (privateChat == null) {
+            throw new IllegalStateException("PrivateChat not found for chatId: " + chat.getId());
+        }
+
+        return new ChatResponse(
+                chat.getId(),
+                chat.getType(),
+                chat.getTitle(),
+                chat.getCreatedBy(),
+                chat.getCreatedAt(),
+                chat.getUpdatedAt(),
+                List. of(
+                        privateChat.getUserA(),
+                        privateChat.getUserB()
+                )
+        );
+    }
+
+    private ChatResponse getPrivateChatResponse(UUID currentUserId, Chat chat) {
+        PrivateChat privateChat = privateChatRepository.findById(chat.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "PrivateChat not found for chatId: " + chat.getId()
+                ));
+
+        if (!privateChat.getUserA().equals(currentUserId) && !privateChat.getUserB().equals(currentUserId)) {
+            throw new ChatAccessDeniedException(chat.getId());
+        }
+
+        return toChatResponse(chat, privateChat);
     }
 }

@@ -1,6 +1,8 @@
 package com.yappyd.chatservice.controller;
 
 import com.yappyd.chatservice.dto.request.CreatePrivateChatRequest;
+import com.yappyd.chatservice.dto.response.ChatListResponse;
+import com.yappyd.chatservice.dto.response.ChatResponse;
 import com.yappyd.chatservice.dto.response.CreatePrivateChatResponse;
 import com.yappyd.chatservice.exception.InvalidJwtException;
 import com.yappyd.chatservice.service.ChatService;
@@ -9,10 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -30,6 +29,24 @@ public class ChatController {
         UUID currentUserId = extractUserId(jwt);
         UUID chatId = chatService.createPrivateChat(currentUserId, request.targetUserId());
         return ResponseEntity.ok(new CreatePrivateChatResponse(chatId));
+    }
+
+    @GetMapping
+    public ResponseEntity<ChatListResponse> getChats(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID currentUserId = extractUserId(jwt);
+        ChatListResponse response = chatService.getChats(currentUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{chatId}")
+    public ResponseEntity<ChatResponse> getChat(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID chatId) {
+        UUID currentUserId = extractUserId(jwt);
+        ChatResponse response = chatService.getChat(currentUserId, chatId);
+        return ResponseEntity.ok(response);
     }
 
     private UUID extractUserId(Jwt jwt) {
