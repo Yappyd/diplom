@@ -17,6 +17,4 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     Optional<ChatParticipant> findByIdChatIdAndIdUserId(UUID chatId, UUID userId);
 
     List<ChatParticipant> findByIdChatIdIn(Collection<UUID> chatIds);
-
-    boolean existsByIdChatIdAndIdUserId(UUID chatId, UUID userId);
 }

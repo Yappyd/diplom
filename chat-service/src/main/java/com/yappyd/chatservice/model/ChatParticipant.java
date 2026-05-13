@@ -53,11 +53,14 @@ public class ChatParticipant {
         this.role = role;
     }
 
-    public void updateProfile(ParticipantRole role, String nickname) {
+    public void updateNickname(String nickname) {
+        this.nickname = (nickname == null || nickname.isBlank()) ? null : nickname.trim();
+    }
+
+    public void changeRole(ParticipantRole role) {
         if (role == null) {
             throw new InvalidChatParticipantException("participant role must not be null");
         }
         this.role = role;
-        this.nickname = (nickname == null || nickname.isBlank()) ? null : nickname.trim();
     }
 }

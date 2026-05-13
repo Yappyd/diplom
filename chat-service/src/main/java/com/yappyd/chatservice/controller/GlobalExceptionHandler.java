@@ -5,6 +5,7 @@ import com.yappyd.chatservice.exception.ChatServiceException;
 import com.yappyd.chatservice.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ChatServiceException.class)
@@ -72,6 +74,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
+        log.error("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), ex);
         return buildResponse(ErrorCode.INTERNAL_ERROR, "Unexpected server error", request);
     }
 
