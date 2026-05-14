@@ -1,9 +1,10 @@
 package com.yappyd.messageservice.model;
 
+import com.yappyd.messageservice.exception.InvalidMessageException;
+import com.yappyd.messageservice.exception.MessageAlreadyDeletedException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,6 +19,8 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Message {
+
+    private static final int MAX_CONTENT_LENGTH = 4000;
 
     @Id
     @Column(name = "message_id", nullable = false, updatable = false)
@@ -41,33 +44,39 @@ public class Message {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
-    private Message(UUID chatId, UUID senderId, String content) {
-        this.chatId = chatId;
-        this.senderId = senderId;
-        this.content = content;
-    }
-
     public static Message create(UUID chatId, UUID senderId, String content) {
-        return new Message(chatId, senderId, content);
-    }
-
-    @PrePersist
-    private void prePersist() {
-        if (messageId == null) {
-            messageId = UUID.randomUUID();
+        if (chatId == null) {
+            throw new InvalidMessageException("chatId must not be null");
         }
 
-        if (createdAt == null) {
-            createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+        if (senderId == null) {
+            throw new InvalidMessageException("senderId must not be null");
         }
+
+        Message message = new Message();
+        message.messageId = UUID.randomUUID();
+        message.chatId = chatId;
+        message.senderId = senderId;
+        message.content = validateContent(content);
+        message.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+
+        return message;
     }
 
     public void updateContent(String content) {
-        this.content = content;
+        if (isDeleted()) {
+            throw new MessageAlreadyDeletedException(messageId);
+        }
+
+        this.content = validateContent(content);
         this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     public void softDelete() {
+        if (isDeleted()) {
+            throw new MessageAlreadyDeletedException(messageId);
+        }
+
         this.deletedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
@@ -77,5 +86,18 @@ public class Message {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    private static String validateContent(String content) {
+        if (content == null || content.isBlank()) {
+            throw new InvalidMessageException("Message content must not be blank");
+        }
+        if (content.length() > MAX_CONTENT_LENGTH) {
+            throw new InvalidMessageException(
+                    "Message content must not exceed " + MAX_CONTENT_LENGTH + " characters"
+            );
+        }
+
+        return content;
     }
 }
