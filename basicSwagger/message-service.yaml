@@ -1,0 +1,332 @@
+openapi: 3.0.3
+
+info:
+  title: Message Service API
+  version: 1.0.0
+  description: API сервиса сообщений мессенджера
+
+servers:
+  - url: http://localhost:8084
+    description: Local message-service
+
+tags:
+  - name: Messages
+    description: Операции с сообщениями
+
+paths:
+  /chats/{chatId}/messages:
+    post:
+      tags:
+        - Messages
+      summary: Отправить сообщение в чат
+      description: Создаёт новое сообщение в указанном чате от имени текущего пользователя.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          description: Идентификатор чата
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Сообщение успешно создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не имеет доступа к чату
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Messages
+      summary: Получить историю сообщений чата
+      description: Возвращает список сообщений указанного чата с cursor-пагинацией.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          description: Идентификатор чата
+          schema:
+            type: string
+            format: uuid
+        - name: before
+          in: query
+          required: false
+          description: Вернуть сообщения, созданные раньше указанного времени
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Максимальное количество сообщений
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePageResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не имеет доступа к чату
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Чат не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /messages/{messageId}:
+    get:
+      tags:
+        - Messages
+      summary: Получить сообщение по идентификатору
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          description: Идентификатор сообщения
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Сообщение найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не имеет доступа к сообщению
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Сообщение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Messages
+      summary: Редактировать сообщение
+      description: Позволяет автору сообщения изменить его содержимое.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          description: Идентификатор сообщения
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMessageRequest'
+      responses:
+        '200':
+          description: Сообщение успешно обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не является автором сообщения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Сообщение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Messages
+      summary: Удалить сообщение
+      description: Выполняет мягкое удаление сообщения. Сообщение помечается как удалённое, но не удаляется физически из базы данных.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          description: Идентификатор сообщения
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Сообщение успешно удалено
+        '401':
+          description: Пользователь не аутентифицирован
+        '403':
+          description: Пользователь не является автором сообщения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Сообщение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SendMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          example: Привет!
+
+    UpdateMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          example: Привет, я исправил сообщение
+
+    MessageResponse:
+      type: object
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        chatId:
+          type: string
+          format: uuid
+        senderId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          example: Привет!
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        edited:
+          type: boolean
+          example: false
+        deleted:
+          type: boolean
+          example: false
+
+    MessagePageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageResponse'
+        limit:
+          type: integer
+          example: 50
+        hasMore:
+          type: boolean
+          example: true
+        nextBefore:
+          type: string
+          format: date-time
+          nullable: true
+          description: Cursor для получения следующей страницы сообщений
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: MESSAGE_NOT_FOUND
+        message:
+          type: string
+          example: Сообщение не найдено
+        timestamp:
+          type: string
+          format: date-time
