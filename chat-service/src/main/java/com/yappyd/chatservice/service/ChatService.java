@@ -1,5 +1,6 @@
 package com.yappyd.chatservice.service;
 
+import com.yappyd.chatservice.component.ChatMessagePermissionEventPublisher;
 import com.yappyd.chatservice.dto.request.UpdateChatParticipantRequest;
 import com.yappyd.chatservice.dto.response.ChatListResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantResponse;
@@ -14,10 +15,10 @@ import com.yappyd.chatservice.model.PrivateChat;
 import com.yappyd.chatservice.repository.ChatParticipantRepository;
 import com.yappyd.chatservice.repository.ChatRepository;
 import com.yappyd.chatservice.repository.PrivateChatRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
@@ -32,6 +33,7 @@ public class ChatService {
     private final PrivateChatRepository privateChatRepository;
     private final TransactionTemplate transactionTemplate;
     private final ChatParticipantRepository chatParticipantRepository;
+    private final ChatMessagePermissionEventPublisher messagePermissionEventPublisher;
 
     public ChatResponse createPrivateChat(UUID currentUserId, UUID targetUserId) {
         validatePrivateChat(currentUserId, targetUserId);
@@ -45,7 +47,14 @@ public class ChatService {
         Chat chat = chatRepository.findById(privateChat.getChatId())
                 .orElseThrow(() -> new IllegalStateException("Chat not found for privateChatId: " + privateChat.getChatId()));
 
+        publishPrivateChatPermissions(privateChat);
+
         return toChatResponse(chat, privateChat);
+    }
+
+    private void publishPrivateChatPermissions(PrivateChat privateChat) {
+        messagePermissionEventPublisher.publishPermissionUpserted(privateChat.getChatId(), privateChat.getUserA(), false);
+        messagePermissionEventPublisher.publishPermissionUpserted(privateChat.getChatId(), privateChat.getUserB(), false);
     }
 
     private void validatePrivateChat(UUID currentUserId, UUID targetUserId) {
@@ -101,10 +110,7 @@ public class ChatService {
     public ChatResponse createGroupChat(UUID currentUserId, String title, List<UUID> participantIds) {
         validateGroupChat(currentUserId, title, participantIds);
 
-        Set<UUID> normalizedParticipantIds = normalizeGroupParticipants(
-                currentUserId,
-                participantIds
-        );
+        Set<UUID> normalizedParticipantIds = normalizeGroupParticipants(currentUserId, participantIds);
 
         UUID createdChatId = transactionTemplate.execute(status -> {
             Chat chat = Chat.createGroupChat(currentUserId, title);
@@ -117,6 +123,14 @@ public class ChatService {
                     }).toList();
 
             chatParticipantRepository.saveAll(participants);
+
+            participants.forEach(participant ->
+                    messagePermissionEventPublisher.publishPermissionUpserted(
+                            participant.getId().getChatId(),
+                            participant.getId().getUserId(),
+                            participant.getRole()
+                    )
+            );
 
             return chat.getId();
         });
@@ -178,7 +192,7 @@ public class ChatService {
 
         Map<UUID, List<ChatParticipant>> groupParticipantsByChatId = groupChatIds.isEmpty()
                 ? Map.of() : chatParticipantRepository.findByIdChatIdIn(groupChatIds).stream()
-                             .collect(Collectors.groupingBy(participant -> participant.getId().getChatId()));
+                .collect(Collectors.groupingBy(participant -> participant.getId().getChatId()));
 
         List<Chat> chats = chatRepository.findByIdInOrderByUpdatedAtDesc(chatIds);
 
@@ -316,6 +330,7 @@ public class ChatService {
         );
     }
 
+    @Transactional
     public ChatParticipantsResponse addParticipant(UUID currentUserId, UUID chatId, UUID userId) {
         validateParticipantAction(currentUserId, chatId, userId);
 
@@ -350,6 +365,8 @@ public class ChatService {
         ChatParticipant newParticipant = new ChatParticipant(chatId, userId, ParticipantRole.MEMBER);
         chatParticipantRepository.save(newParticipant);
 
+        messagePermissionEventPublisher.publishPermissionUpserted(chatId, userId, newParticipant.getRole());
+
         List<ChatParticipant> updatedParticipants = chatParticipantRepository.findByIdChatId(chatId);
         List<ChatParticipantResponse> participantResponses = updatedParticipants.stream()
                 .map(this::toChatParticipantResponse).toList();
@@ -382,47 +399,50 @@ public class ChatService {
 
         boolean removingSelf = currentUserId.equals(userId);
 
-            List<ChatParticipant> participants = chatParticipantRepository.findByIdChatId(chatId);
+        List<ChatParticipant> participants = chatParticipantRepository.findByIdChatId(chatId);
 
-            if (participants.isEmpty()) {
-                throw new IllegalStateException("Group participants not found for chatId: " + chatId);
-            }
+        if (participants.isEmpty()) {
+            throw new IllegalStateException("Group participants not found for chatId: " + chatId);
+        }
 
-            ChatParticipant currentParticipant = participants.stream()
-                    .filter(participant -> participant.getId().getUserId().equals(currentUserId))
-                    .findFirst()
-                    .orElseThrow(() -> new ChatAccessDeniedException(chatId));
-            ChatParticipant targetParticipant = participants.stream()
-                    .filter(participant -> participant.getId().getUserId().equals(userId))
-                    .findFirst()
-                    .orElseThrow(() -> new ParticipantNotFoundException(chatId, userId));
+        ChatParticipant currentParticipant = participants.stream()
+                .filter(participant -> participant.getId().getUserId().equals(currentUserId))
+                .findFirst()
+                .orElseThrow(() -> new ChatAccessDeniedException(chatId));
+        ChatParticipant targetParticipant = participants.stream()
+                .filter(participant -> participant.getId().getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new ParticipantNotFoundException(chatId, userId));
 
-            validateParticipantPermissionHierarchy(chatId, currentParticipant, targetParticipant);
+        validateParticipantPermissionHierarchy(chatId, currentParticipant, targetParticipant);
 
-            boolean ownerRemovesSelf = removingSelf && targetParticipant.getRole() == ParticipantRole.OWNER;
-            boolean removingLastParticipant = participants.size() == 1;
-            if (ownerRemovesSelf && removingLastParticipant) {
-                chatRepository.delete(chat);
-                return Optional.empty();
-            }
+        boolean ownerRemovesSelf = removingSelf && targetParticipant.getRole() == ParticipantRole.OWNER;
+        boolean removingLastParticipant = participants.size() == 1;
+        if (ownerRemovesSelf && removingLastParticipant) {
+            chatRepository.delete(chat);
+            messagePermissionEventPublisher.publishPermissionDeleted(chatId, userId);
+            return Optional.empty();
+        }
 
-            if (ownerRemovesSelf) {
-                transferOwnershipBeforeOwnerLeaves(chatId, userId, newOwnerId, participants);
-            }
+        if (ownerRemovesSelf) {
+            transferOwnershipBeforeOwnerLeaves(chatId, userId, newOwnerId, participants);
+            messagePermissionEventPublisher.publishPermissionUpserted(chatId, newOwnerId, true);
+        }
 
-            chatParticipantRepository.delete(targetParticipant);
+        chatParticipantRepository.delete(targetParticipant);
+        messagePermissionEventPublisher.publishPermissionDeleted(chatId, userId);
 
-            if (removingSelf) {
-                return Optional.empty();
-            }
+        if (removingSelf) {
+            return Optional.empty();
+        }
 
-            List<ChatParticipant> updatedParticipants = chatParticipantRepository.findByIdChatId(chatId);
+        List<ChatParticipant> updatedParticipants = chatParticipantRepository.findByIdChatId(chatId);
 
-            List<ChatParticipantResponse> participantResponses = updatedParticipants.stream()
-                    .map(this::toChatParticipantResponse)
-                    .toList();
+        List<ChatParticipantResponse> participantResponses = updatedParticipants.stream()
+                .map(this::toChatParticipantResponse)
+                .toList();
 
-            return Optional.of(new ChatParticipantsResponse(participantResponses));
+        return Optional.of(new ChatParticipantsResponse(participantResponses));
     }
 
     private void validateParticipantPermissionHierarchy(UUID chatId, ChatParticipant currentParticipant, ChatParticipant targetParticipant) {
@@ -472,6 +492,8 @@ public class ChatService {
         if (request.getRole().isPresent()) {
             ParticipantRole newRole = request.getRole().get();
             updateParticipantRole(chatId, currentParticipant, targetParticipant, newRole);
+
+            messagePermissionEventPublisher.publishPermissionUpserted(chatId, userId, newRole);
         }
 
         if (request.getNickname().isPresent()) {
@@ -481,6 +503,7 @@ public class ChatService {
         }
 
         ChatParticipant savedParticipant = chatParticipantRepository.save(targetParticipant);
+
 
         return toChatParticipantResponse(savedParticipant);
     }

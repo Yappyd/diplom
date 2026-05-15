@@ -37,6 +37,7 @@ public class ChatMessagePermissionService {
         permissionRepository.save(permission);
     }
 
+    @Transactional
     public void deletePermission(UUID chatId, UUID userId) {
         permissionRepository.deleteByIdChatIdAndIdUserId(chatId, userId);
     }

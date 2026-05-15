@@ -49,18 +49,10 @@ public class RabbitConfig {
     }
 
     @Bean
-    public JacksonJsonMessageConverter jsonConverter() {
-        return new JacksonJsonMessageConverter();
-    }
-
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory, JacksonJsonMessageConverter converter
-    ) {
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
 
         factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(converter);
-
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
 
         factory.setConcurrentConsumers(1);
