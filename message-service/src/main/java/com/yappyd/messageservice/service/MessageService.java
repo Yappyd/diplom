@@ -2,6 +2,7 @@ package com.yappyd.messageservice.service;
 
 import com.yappyd.messageservice.dto.response.MessagePageResponse;
 import com.yappyd.messageservice.dto.response.MessageResponse;
+import com.yappyd.messageservice.exception.ChatAccessDeniedException;
 import com.yappyd.messageservice.exception.MessageAccessDeniedException;
 import com.yappyd.messageservice.exception.MessageNotFoundException;
 import com.yappyd.messageservice.model.Message;
@@ -18,23 +19,28 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class MessageService {
+    private final ChatMessagePermissionService permissionService;
     private final MessageRepository messageRepository;
 
     public MessageResponse sendMessage(UUID userId, UUID chatId, String content) {
-        //TODO user in chat
+        permissionService.validateUserInChat(chatId, userId);
+
         Message message = Message.create(chatId, userId, content);
         messageRepository.save(message);
         return MessageResponse.from(message);
     }
 
     public MessageResponse getMessageById(UUID userId, UUID messageId) {
-        //TODO user in chat
-        Message message = messageRepository.findById(messageId).orElseThrow(() -> new MessageNotFoundException(messageId));
+        Message message = getMessageOrThrow(messageId);
+
+        permissionService.validateUserInChat(message.getChatId(), userId);
+
         return MessageResponse.from(message);
     }
 
     public MessagePageResponse getMessagesByChat(UUID userId, UUID chatId, OffsetDateTime before, int limit) {
-        //TODO user in chat
+        permissionService.validateUserInChat(chatId, userId);
+
         PageRequest pageRequest = PageRequest.of(0, limit + 1);
         List<Message> messages;
 
@@ -61,8 +67,9 @@ public class MessageService {
 
     @Transactional
     public MessageResponse updateMessage(UUID userId, UUID messageId, String content) {
-        //TODO user in chat
-        Message message = messageRepository.findById(messageId).orElseThrow(() -> new MessageNotFoundException(messageId));
+        Message message = getMessageOrThrow(messageId);
+
+        permissionService.validateUserInChat(message.getChatId(), userId);
 
         if (!message.getSenderId().equals(userId)) {
             throw new MessageAccessDeniedException(messageId);
@@ -75,14 +82,24 @@ public class MessageService {
 
     @Transactional
     public void deleteMessage(UUID userId, UUID messageId) {
-        //TODO user in chat and can delete message
-        Message message = messageRepository.findById(messageId)
-                .orElseThrow(() -> new MessageNotFoundException(messageId));
+        Message message = getMessageOrThrow(messageId);
 
-        if (!message.getSenderId().equals(userId)) {
+        permissionService.validateUserInChat(message.getChatId(), userId);
+
+        if (message.getSenderId().equals(userId)) {
+            message.softDelete();
+            return;
+        }
+
+        boolean canDeleteAnyMessages = permissionService.canDeleteAnyMessages(message.getChatId(), userId);
+        if (!canDeleteAnyMessages) {
             throw new MessageAccessDeniedException(messageId);
         }
 
         message.softDelete();
+    }
+
+    private Message getMessageOrThrow(UUID messageId) {
+        return messageRepository.findById(messageId).orElseThrow(() -> new MessageNotFoundException(messageId));
     }
 }
