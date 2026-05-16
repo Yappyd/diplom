@@ -1,0 +1,388 @@
+asyncapi: 3.1.0
+
+info:
+  title: WebSocket Service API
+  version: 1.0.0
+  description: |
+    AsyncAPI-контракт websocket-service для веб-приложения мессенджера.
+
+    WebSocket Service отвечает за real-time доставку событий подключённым пользователям.
+
+    Сервис:
+      - принимает WebSocket/STOMP подключения от клиентов;
+      - проверяет JWT при STOMP CONNECT;
+      - позволяет клиенту подписаться на личную очередь событий;
+      - слушает RabbitMQ-события от chat-service и message-service;
+      - хранит локальную read-model связей chatId-userId;
+      - доставляет real-time события пользователям через WebSocket.
+
+    Сервис не отвечает за:
+      - создание сообщений;
+      - редактирование сообщений;
+      - удаление сообщений;
+      - хранение истории сообщений;
+      - создание и изменение чатов;
+      - управление профилями пользователей.
+
+defaultContentType: application/json
+
+servers:
+  websocketLocal:
+    host: localhost:8085
+    protocol: stomp
+    pathname: /ws
+    description: Локальный WebSocket/STOMP endpoint websocket-service
+
+  gatewayLocal:
+    host: localhost:8080
+    protocol: stomp
+    pathname: /ws
+    description: WebSocket/STOMP endpoint через API Gateway
+
+  rabbitmqLocal:
+    host: localhost:5672
+    protocol: amqp
+    description: Локальный RabbitMQ broker
+
+channels:
+  userEvents:
+    address: /user/queue/events
+    description: |
+      Личная STOMP-очередь пользователя.
+
+      Клиент подписывается на этот destination и получает события,
+      предназначенные только текущему пользователю.
+    servers:
+      - $ref: '#/servers/websocketLocal'
+      - $ref: '#/servers/gatewayLocal'
+    messages:
+      MessageCreatedWebSocketEvent:
+        $ref: '#/components/messages/MessageCreatedWebSocketEvent'
+      ChatAccessRevokedWebSocketEvent:
+        $ref: '#/components/messages/ChatAccessRevokedWebSocketEvent'
+
+  chatMessagePermissionUpserted:
+    address: chat.message-permission.upserted
+    description: |
+      RabbitMQ routing key события, означающего, что пользователь получил
+      или обновил доступ к сообщениям определённого чата.
+
+      websocket-service использует это событие для обновления локальной
+      таблицы chat_websocket_memberships.
+    servers:
+      - $ref: '#/servers/rabbitmqLocal'
+    messages:
+      ChatMessagePermissionUpsertedEvent:
+        $ref: '#/components/messages/ChatMessagePermissionUpsertedEvent'
+
+  chatMessagePermissionDeleted:
+    address: chat.message-permission.deleted
+    description: |
+      RabbitMQ routing key события, означающего, что пользователь потерял
+      доступ к сообщениям определённого чата.
+
+      websocket-service отправляет пользователю событие CHAT_ACCESS_REVOKED
+      и удаляет связь chatId-userId из локальной таблицы.
+    servers:
+      - $ref: '#/servers/rabbitmqLocal'
+    messages:
+      ChatMessagePermissionDeletedEvent:
+        $ref: '#/components/messages/ChatMessagePermissionDeletedEvent'
+
+  messageCreated:
+    address: message.created
+    description: |
+      RabbitMQ routing key события, означающего создание нового сообщения.
+
+      websocket-service получает событие, находит всех пользователей чата
+      по локальной read-model и отправляет им MESSAGE_CREATED.
+    servers:
+      - $ref: '#/servers/rabbitmqLocal'
+    messages:
+      MessageCreatedIntegrationEvent:
+        $ref: '#/components/messages/MessageCreatedIntegrationEvent'
+
+operations:
+  sendUserEventsToClient:
+    action: send
+    channel:
+      $ref: '#/channels/userEvents'
+    summary: Отправить real-time событие пользователю через WebSocket
+    description: |
+      websocket-service отправляет события подключённому клиенту
+      в личную очередь /user/queue/events.
+    messages:
+      - $ref: '#/channels/userEvents/messages/MessageCreatedWebSocketEvent'
+      - $ref: '#/channels/userEvents/messages/ChatAccessRevokedWebSocketEvent'
+
+  receiveChatMessagePermissionUpserted:
+    action: receive
+    channel:
+      $ref: '#/channels/chatMessagePermissionUpserted'
+    summary: Получить событие выдачи или обновления доступа к чату
+    description: |
+      websocket-service получает событие от chat-service и добавляет
+      или обновляет запись в chat_websocket_memberships.
+    messages:
+      - $ref: '#/channels/chatMessagePermissionUpserted/messages/ChatMessagePermissionUpsertedEvent'
+
+  receiveChatMessagePermissionDeleted:
+    action: receive
+    channel:
+      $ref: '#/channels/chatMessagePermissionDeleted'
+    summary: Получить событие удаления доступа к чату
+    description: |
+      websocket-service получает событие от chat-service, отправляет
+      пользователю CHAT_ACCESS_REVOKED и удаляет локальную связь chatId-userId.
+    messages:
+      - $ref: '#/channels/chatMessagePermissionDeleted/messages/ChatMessagePermissionDeletedEvent'
+
+  receiveMessageCreated:
+    action: receive
+    channel:
+      $ref: '#/channels/messageCreated'
+    summary: Получить событие создания сообщения
+    description: |
+      websocket-service получает событие от message-service, находит всех
+      пользователей чата и доставляет им WebSocket-событие MESSAGE_CREATED.
+    messages:
+      - $ref: '#/channels/messageCreated/messages/MessageCreatedIntegrationEvent'
+
+components:
+  messages:
+    ChatMessagePermissionUpsertedEvent:
+      name: ChatMessagePermissionUpsertedEvent
+      title: Chat message permission upserted
+      summary: Пользователь получил или обновил доступ к сообщениям чата
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatMessagePermissionUpsertedPayload'
+
+    ChatMessagePermissionDeletedEvent:
+      name: ChatMessagePermissionDeletedEvent
+      title: Chat message permission deleted
+      summary: Пользователь потерял доступ к сообщениям чата
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatMessagePermissionDeletedPayload'
+
+    MessageCreatedIntegrationEvent:
+      name: MessageCreatedIntegrationEvent
+      title: Message created integration event
+      summary: В message-service создано новое сообщение
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MessageCreatedIntegrationPayload'
+
+    MessageCreatedWebSocketEvent:
+      name: MessageCreatedWebSocketEvent
+      title: MESSAGE_CREATED
+      summary: WebSocket-событие о новом сообщении
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MessageCreatedWebSocketEnvelope'
+
+    ChatAccessRevokedWebSocketEvent:
+      name: ChatAccessRevokedWebSocketEvent
+      title: CHAT_ACCESS_REVOKED
+      summary: WebSocket-событие о потере доступа к чату
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatAccessRevokedWebSocketEnvelope'
+
+  schemas:
+    ChatMessagePermissionUpsertedPayload:
+      type: object
+      required:
+        - chatId
+        - userId
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата
+          examples:
+            - f2f5f0b1-2b3d-4f7e-9a1c-2d3e4f5a6b7c
+        userId:
+          type: string
+          format: uuid
+          description: Идентификатор пользователя, получившего доступ к чату
+          examples:
+            - a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+
+    ChatMessagePermissionDeletedPayload:
+      type: object
+      required:
+        - chatId
+        - userId
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата
+          examples:
+            - f2f5f0b1-2b3d-4f7e-9a1c-2d3e4f5a6b7c
+        userId:
+          type: string
+          format: uuid
+          description: Идентификатор пользователя, потерявшего доступ к чату
+          examples:
+            - a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+
+    MessageCreatedIntegrationPayload:
+      type: object
+      required:
+        - eventId
+        - messageId
+        - chatId
+        - senderId
+        - content
+        - createdAt
+        - occurredAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Идентификатор события
+          examples:
+            - 7d9a8c2e-0c7f-4df5-84a8-67fa91c8c123
+        messageId:
+          type: string
+          format: uuid
+          description: Идентификатор созданного сообщения
+          examples:
+            - 9b7f1b2c-3d4e-4f5a-8b9c-1d2e3f4a5b6c
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата
+          examples:
+            - f2f5f0b1-2b3d-4f7e-9a1c-2d3e4f5a6b7c
+        senderId:
+          type: string
+          format: uuid
+          description: Идентификатор отправителя сообщения
+          examples:
+            - a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+        content:
+          type: string
+          description: Текст сообщения
+          examples:
+            - Привет!
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания сообщения
+          examples:
+            - '2026-05-16T12:00:00Z'
+        occurredAt:
+          type: string
+          format: date-time
+          description: Дата и время возникновения события
+          examples:
+            - '2026-05-16T12:00:00Z'
+
+    MessageCreatedWebSocketEnvelope:
+      type: object
+      required:
+        - eventId
+        - type
+        - occurredAt
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Идентификатор события
+          examples:
+            - 7d9a8c2e-0c7f-4df5-84a8-67fa91c8c123
+        type:
+          type: string
+          const: MESSAGE_CREATED
+          description: Тип WebSocket-события
+        occurredAt:
+          type: string
+          format: date-time
+          description: Дата и время возникновения события
+          examples:
+            - '2026-05-16T12:00:00Z'
+        payload:
+          $ref: '#/components/schemas/MessageCreatedWebSocketPayload'
+
+    MessageCreatedWebSocketPayload:
+      type: object
+      required:
+        - messageId
+        - chatId
+        - senderId
+        - content
+        - createdAt
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          description: Идентификатор сообщения
+          examples:
+            - 9b7f1b2c-3d4e-4f5a-8b9c-1d2e3f4a5b6c
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата
+          examples:
+            - f2f5f0b1-2b3d-4f7e-9a1c-2d3e4f5a6b7c
+        senderId:
+          type: string
+          format: uuid
+          description: Идентификатор отправителя сообщения
+          examples:
+            - a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+        content:
+          type: string
+          description: Текст сообщения
+          examples:
+            - Привет!
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания сообщения
+          examples:
+            - '2026-05-16T12:00:00Z'
+
+    ChatAccessRevokedWebSocketEnvelope:
+      type: object
+      required:
+        - eventId
+        - type
+        - occurredAt
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Идентификатор события
+          examples:
+            - 6dbd2652-1a2c-4e45-b460-8017f5f981aa
+        type:
+          type: string
+          const: CHAT_ACCESS_REVOKED
+          description: Тип WebSocket-события
+        occurredAt:
+          type: string
+          format: date-time
+          description: Дата и время возникновения события
+          examples:
+            - '2026-05-16T12:00:00Z'
+        payload:
+          $ref: '#/components/schemas/ChatAccessRevokedWebSocketPayload'
+
+    ChatAccessRevokedWebSocketPayload:
+      type: object
+      required:
+        - chatId
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          description: Идентификатор чата, доступ к которому был отозван
+          examples:
+            - f2f5f0b1-2b3d-4f7e-9a1c-2d3e4f5a6b7c
