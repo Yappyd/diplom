@@ -1,5 +1,4 @@
 name: diplom
-version: '3.9'
 
 services:
   postgres:
@@ -19,6 +18,7 @@ services:
       - DB_USER_PASSWORD
       - DB_CHAT_PASSWORD
       - DB_MESSAGE_PASSWORD
+      - DB_WEBSOCKET_PASSWORD
     restart: unless-stopped
 
   rabbitmq:
@@ -65,6 +65,8 @@ secrets:
     file: ./secrets/postgres/chat_db/chat_db_password
   DB_MESSAGE_PASSWORD:
     file: ./secrets/postgres/message_db/message_db_password
+  DB_WEBSOCKET_PASSWORD:
+    file: ./secrets/postgres/websocket_db/websocket_db_password
   JWT_PRIVATE_KEY:
     file: ./secrets/keys/private.pem
   JWT_PUBLIC_KEY:

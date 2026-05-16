@@ -17,10 +17,7 @@ public class ChatWebSocketMembershipService {
 
     @Transactional
     public void upsertMembership(UUID chatId, UUID userId) {
-        if (existsMembership(chatId, userId)) return;
-
-        ChatWebSocketMembership membership = new ChatWebSocketMembership(chatId, userId);
-        membershipRepository.save(membership);
+        membershipRepository.insertIfAbsent(chatId, userId);
     }
 
     @Transactional
@@ -32,7 +29,7 @@ public class ChatWebSocketMembershipService {
         return membershipRepository.findUserIdsByChatId(chatId);
     }
 
-    public boolean existsMembership(UUID chatId, UUID userId) {
-        return membershipRepository.existsByIdChatIdAndIdUserId(chatId, userId);
+    public List<UUID> findUserIdsSharingChatsWithUserId(UUID userId) {
+        return membershipRepository.findUserIdsSharingChatsWithUserId(userId);
     }
 }
