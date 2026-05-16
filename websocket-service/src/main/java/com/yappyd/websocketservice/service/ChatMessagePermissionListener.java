@@ -1,5 +1,6 @@
 package com.yappyd.websocketservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import com.yappyd.websocketservice.config.RabbitConfig;
@@ -20,8 +21,9 @@ public class ChatMessagePermissionListener {
 
     private final ChatWebSocketMembershipService membershipService;
     private final ObjectMapper objectMapper;
+    private final WebSocketEventSender webSocketEventSender;
 
-    @RabbitListener(queues = RabbitConfig.CHAT_MESSAGE_PERMISSION_QUEUE)
+    @RabbitListener(queues = RabbitConfig.WEBSOCKET_CHAT_MESSAGE_PERMISSION_QUEUE)
     public void handleChatMessagePermissionEvent(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
         String routingKey = message.getMessageProperties().getReceivedRoutingKey();
@@ -37,7 +39,12 @@ public class ChatMessagePermissionListener {
             }
 
             if (RabbitConfig.CHAT_MESSAGE_PERMISSION_DELETED_ROUTING_KEY.equals(routingKey)) {
-                ChatMessagePermissionDeletedEvent event = objectMapper.readValue(message.getBody(), ChatMessagePermissionDeletedEvent.class);
+                ChatMessagePermissionDeletedEvent event = objectMapper.readValue(
+                        message.getBody(),
+                        ChatMessagePermissionDeletedEvent.class
+                );
+
+                webSocketEventSender.sendChatAccessRevoked(event.userId(), event.chatId());
 
                 membershipService.deleteMembership(event.chatId(), event.userId());
 
@@ -47,6 +54,10 @@ public class ChatMessagePermissionListener {
 
             log.warn("Unknown chat message permission routing key: {}", routingKey);
             channel.basicAck(deliveryTag, false);
+
+        } catch (JsonProcessingException ex) {
+            log.error("Failed to deserialize chat message permission event. routingKey={}", routingKey, ex);
+            channel.basicReject(deliveryTag, false);
 
         } catch (Exception ex) {
             log.error("Failed to handle chat message permission event. routingKey={}", routingKey, ex);

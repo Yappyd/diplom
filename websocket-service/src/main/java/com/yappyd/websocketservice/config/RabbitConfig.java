@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitConfig {
 
     public static final String CHAT_EVENTS_EXCHANGE = "chat.events";
-    public static final String CHAT_MESSAGE_PERMISSION_QUEUE = "websocket-service.chat-message-permission.queue";
+    public static final String WEBSOCKET_CHAT_MESSAGE_PERMISSION_QUEUE = "websocket-service.chat-message-permission.queue";
     public static final String CHAT_MESSAGE_PERMISSION_ROUTING_PATTERN = "chat.message-permission.*";
     public static final String CHAT_MESSAGE_PERMISSION_UPSERTED_ROUTING_KEY = "chat.message-permission.upserted";
     public static final String CHAT_MESSAGE_PERMISSION_DELETED_ROUTING_KEY = "chat.message-permission.deleted";
@@ -26,7 +26,7 @@ public class RabbitConfig {
     @Bean
     public Queue chatMessagePermissionQueue() {
         return QueueBuilder
-                .durable(CHAT_MESSAGE_PERMISSION_QUEUE)
+                .durable(WEBSOCKET_CHAT_MESSAGE_PERMISSION_QUEUE)
                 .build();
     }
 
