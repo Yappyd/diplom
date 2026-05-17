@@ -1,9 +1,11 @@
 package com.yappyd.userservice.service;
 
-import com.yappyd.userservice.dto.rabbitmq.UserCreatedEvent;
+import com.yappyd.userservice.component.UserEventPublisher;
+import com.yappyd.userservice.dto.event.UserCreatedEvent;
 import com.yappyd.userservice.exception.UserNotFoundException;
 import com.yappyd.userservice.model.User;
 import com.yappyd.userservice.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,15 +14,17 @@ import java.util.UUID;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    private final UserEventPublisher userEventPublisher;
 
     public void saveCreatedUser(UserCreatedEvent event) {
-        userRepository.saveCreatedUser(event.userId(), event.phoneNumber(), event.createdAt());
+        int inserted = userRepository.saveCreatedUser(event.userId(), event.phoneNumber(), event.createdAt());
+
+        if (inserted == 1) {
+            userEventPublisher.publishUserCreated(event.userId());
+        }
     }
 
     public User completeProfile(UUID userId, String firstName) {

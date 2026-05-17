@@ -54,7 +54,7 @@ public class User {
 
     public void updateProfile(String firstName, String lastName, String tag, boolean phoneIsVisible) {
         if (!this.profileCompleted) throw new InvalidProfileDataException("Profile is not completed yet");
-        if (firstName == null || firstName.isEmpty()) throw new InvalidProfileDataException("First name is empty");
+        if (firstName == null || firstName.isBlank()) throw new InvalidProfileDataException("First name is empty");
 
         this.firstName = firstName.trim();
         this.lastName = (lastName == null || lastName.isBlank()) ? null : lastName.trim();

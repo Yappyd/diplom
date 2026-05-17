@@ -76,7 +76,7 @@ public class UserController {
     }
 
     @PostMapping("/complete-profile")
-    public ResponseEntity<CurrentUserProfileResponse> completeProfile(@AuthenticationPrincipal Jwt jwt, @RequestBody CompleteProfileRequest request) {
+    public ResponseEntity<CurrentUserProfileResponse> completeProfile(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CompleteProfileRequest request) {
         UUID userId = UUID.fromString(jwt.getSubject());
         User user = userService.completeProfile(userId, request.firstName());
         return ResponseEntity.ok(userMapper.toCurrentUserProfile(user));

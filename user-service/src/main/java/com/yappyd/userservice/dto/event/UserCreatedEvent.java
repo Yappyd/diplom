@@ -1,4 +1,4 @@
-package com.yappyd.userservice.dto.rabbitmq;
+package com.yappyd.userservice.dto.event;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
