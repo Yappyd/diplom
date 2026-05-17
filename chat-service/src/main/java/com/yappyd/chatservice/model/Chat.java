@@ -74,7 +74,7 @@ public class Chat {
     }
 
     public void updateTitle(String title) {
-        if (this.type == ChatType.PRIVATE) {
+        if (this.type != ChatType.GROUP) {
             throw new PrivateChatTitleUpdateNotAllowedException();
         }
         if (title == null || title.isBlank()) {
@@ -82,4 +82,5 @@ public class Chat {
         }
         this.title = title.trim();
     }
+
 }

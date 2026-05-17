@@ -1,9 +1,6 @@
 package com.yappyd.chatservice.controller;
 
-import com.yappyd.chatservice.dto.request.AddParticipantRequest;
-import com.yappyd.chatservice.dto.request.CreateGroupChatRequest;
-import com.yappyd.chatservice.dto.request.CreatePrivateChatRequest;
-import com.yappyd.chatservice.dto.request.UpdateChatParticipantRequest;
+import com.yappyd.chatservice.dto.request.*;
 import com.yappyd.chatservice.dto.response.ChatListResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantsResponse;
@@ -62,6 +59,27 @@ public class ChatController {
         UUID currentUserId = extractUserId(jwt);
         ChatResponse response = chatService.getChat(currentUserId, chatId);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{chatId}")
+    public ResponseEntity<ChatResponse> updateChat(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID chatId,
+            @RequestBody UpdateChatRequest request
+    ) {
+        UUID currentUserId = extractUserId(jwt);
+        ChatResponse response = chatService.updateChat(currentUserId, chatId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{chatId}")
+    public ResponseEntity<Void> deleteGroupChat(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID chatId
+    ) {
+        UUID currentUserId = extractUserId(jwt);
+        chatService.deleteGroupChat(currentUserId, chatId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{chatId}/participants")

@@ -1,6 +1,7 @@
 package com.yappyd.chatservice.service;
 
 import com.yappyd.chatservice.component.ChatMessagePermissionEventPublisher;
+import com.yappyd.chatservice.component.ChatUiEventPublisher;
 import com.yappyd.chatservice.dto.response.ChatResponse;
 import com.yappyd.chatservice.exception.InvalidPrivateChatException;
 import com.yappyd.chatservice.exception.PrivateChatWithSelfException;
@@ -14,7 +15,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,20 +29,26 @@ public class PrivateChatService {
     private final TransactionTemplate transactionTemplate;
     private final ChatMessagePermissionEventPublisher messagePermissionEventPublisher;
     private final ChatMapper chatMapper;
+    private final ChatUiEventPublisher chatUiEventPublisher;
+    private final KnownUserService knownUserService;
 
     public ChatResponse createPrivateChat(UUID currentUserId, UUID targetUserId) {
         validatePrivateChat(currentUserId, targetUserId);
+        knownUserService.validateUserKnown(targetUserId);
+        knownUserService.validateUserKnown(currentUserId);
 
         UserPair pair = UserPair.of(currentUserId, targetUserId);
+        Optional<PrivateChat> existingPrivateChat = privateChatRepository.findByUserAAndUserB(pair.userA(), pair.userB());
+        PrivateChat privateChat;
 
-        PrivateChat privateChat = privateChatRepository
-                .findByUserAAndUserB(pair.userA(), pair.userB())
-                .orElseGet(() -> createPrivateChatWithRaceHandling(currentUserId, pair));
+        if (existingPrivateChat.isPresent()) {
+            privateChat = existingPrivateChat.get();
+            publishPrivateChatPermissions(privateChat);
+        } else {
+            privateChat = createPrivateChatWithRaceHandling(currentUserId, pair);
+        }
 
-        Chat chat = chatRepository.findById(privateChat.getChatId())
-                .orElseThrow(() -> new IllegalStateException("Chat not found for privateChatId: " + privateChat.getChatId()));
-
-        publishPrivateChatPermissions(privateChat);
+        Chat chat = chatRepository.findById(privateChat.getChatId()).orElseThrow(() -> new IllegalStateException("Chat not found for privateChatId: " + privateChat.getChatId()));
 
         return chatMapper.toChatResponse(chat, privateChat);
     }
@@ -70,13 +79,18 @@ public class PrivateChatService {
                 chatRepository.save(chat);
                 PrivateChat privateChat = new PrivateChat(chat.getId(), pair.userA(), pair.userB());
                 privateChatRepository.save(privateChat);
+                publishPrivateChatPermissions(privateChat);
+                chatUiEventPublisher.publishChatCreated(chat, List.of(privateChat.getUserA(), privateChat.getUserB()));
                 return chat.getId();
             });
+
             UUID chatId = Objects.requireNonNull(createdChatId, "createdChatId must not be null");
             return privateChatRepository.findById(chatId).orElseThrow(() -> new IllegalStateException("Created private chat not found: " + chatId));
 
         } catch (DataIntegrityViolationException ex) {
-            return privateChatRepository.findByUserAAndUserB(pair.userA(), pair.userB()).orElseThrow(() -> ex);
+            PrivateChat privateChat = privateChatRepository.findByUserAAndUserB(pair.userA(), pair.userB()).orElseThrow(() -> ex);
+            publishPrivateChatPermissions(privateChat);
+            return privateChat;
         }
     }
 

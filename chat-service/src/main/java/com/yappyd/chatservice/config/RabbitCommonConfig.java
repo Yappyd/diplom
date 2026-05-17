@@ -9,11 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class RabbitConfig {
+public class RabbitCommonConfig {
 
     public static final String CHAT_EVENTS_EXCHANGE = "chat.events";
-    public static final String CHAT_MESSAGE_PERMISSION_UPSERTED_ROUTING_KEY = "chat.message-permission.upserted";
-    public static final String CHAT_MESSAGE_PERMISSION_DELETED_ROUTING_KEY = "chat.message-permission.deleted";
 
     @Bean
     public TopicExchange chatEventsExchange() {

@@ -1,6 +1,7 @@
 package com.yappyd.chatservice.service;
 
 import com.yappyd.chatservice.dto.request.UpdateChatParticipantRequest;
+import com.yappyd.chatservice.dto.request.UpdateChatRequest;
 import com.yappyd.chatservice.dto.response.ChatListResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantsResponse;
@@ -46,6 +47,14 @@ public class ChatService {
 
     public ChatResponse createGroupChat(UUID currentUserId, String title, List<UUID> participantIds) {
         return groupChatService.createGroupChat(currentUserId, title, participantIds);
+    }
+
+    public ChatResponse updateChat(UUID currentUserId, UUID chatId, UpdateChatRequest request) {
+        return groupChatService.updateChat(currentUserId, chatId, request);
+    }
+
+    public void deleteGroupChat(UUID currentUserId, UUID chatId) {
+        groupChatService.deleteGroupChat(currentUserId, chatId);
     }
 
     public ChatListResponse getChats(UUID currentUserId) {

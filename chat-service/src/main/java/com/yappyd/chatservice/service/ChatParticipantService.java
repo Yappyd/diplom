@@ -1,6 +1,7 @@
 package com.yappyd.chatservice.service;
 
 import com.yappyd.chatservice.component.ChatMessagePermissionEventPublisher;
+import com.yappyd.chatservice.component.ChatUiEventPublisher;
 import com.yappyd.chatservice.dto.request.UpdateChatParticipantRequest;
 import com.yappyd.chatservice.dto.response.ChatParticipantResponse;
 import com.yappyd.chatservice.dto.response.ChatParticipantsResponse;
@@ -28,6 +29,7 @@ public class ChatParticipantService {
     private final ChatParticipantRepository chatParticipantRepository;
     private final ChatMessagePermissionEventPublisher messagePermissionEventPublisher;
     private final ChatMapper chatMapper;
+    private final ChatUiEventPublisher chatUiEventPublisher;
 
     public ChatParticipantsResponse getChatParticipants(UUID currentUserId, UUID chatId) {
         if (currentUserId == null) {
@@ -95,8 +97,9 @@ public class ChatParticipantService {
         }
 
         ChatParticipant newParticipant = new ChatParticipant(chatId, userId, ParticipantRole.MEMBER);
-        chatParticipantRepository.save(newParticipant);
+        newParticipant = chatParticipantRepository.save(newParticipant);
         messagePermissionEventPublisher.publishPermissionUpserted(chatId, userId, newParticipant.getRole());
+        chatUiEventPublisher.publishParticipantAdded(newParticipant);
 
         List<ChatParticipant> updatedParticipants = chatParticipantRepository.findByIdChatId(chatId);
         List<ChatParticipantResponse> participantResponses = updatedParticipants.stream().map(chatMapper::toChatParticipantResponse).toList();
@@ -147,10 +150,12 @@ public class ChatParticipantService {
         if (ownerRemovesSelf) {
             ChatParticipant newOwner = transferOwnershipBeforeOwnerLeaves(chatId, userId, newOwnerId, participants);
             messagePermissionEventPublisher.publishPermissionUpserted(chatId, newOwner.getId().getUserId(), newOwner.getRole());
+            chatUiEventPublisher.publishParticipantUpdated(newOwner);
         }
 
         chatParticipantRepository.delete(targetParticipant);
         messagePermissionEventPublisher.publishPermissionDeleted(chatId, userId);
+        chatUiEventPublisher.publishParticipantRemoved(chatId, userId, currentUserId);
 
         if (removingSelf) {
             return Optional.empty();
@@ -189,6 +194,7 @@ public class ChatParticipantService {
         }
 
         ChatParticipant savedParticipant = chatParticipantRepository.save(targetParticipant);
+        chatUiEventPublisher.publishParticipantUpdated(savedParticipant);
 
         return chatMapper.toChatParticipantResponse(savedParticipant);
     }
