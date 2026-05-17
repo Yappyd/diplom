@@ -1,10 +1,11 @@
-package com.yappyd.messageservice.service;
+package com.yappyd.messageservice.component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
-import com.yappyd.messageservice.config.RabbitConfig;
+import com.yappyd.messageservice.config.ChatRabbitConfig;
 import com.yappyd.messageservice.dto.event.ChatMessagePermissionDeletedEvent;
 import com.yappyd.messageservice.dto.event.ChatMessagePermissionUpsertedEvent;
+import com.yappyd.messageservice.service.ChatMessagePermissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
@@ -21,20 +22,20 @@ public class ChatMessagePermissionListener {
     private final ChatMessagePermissionService permissionService;
     private final ObjectMapper objectMapper;
 
-    @RabbitListener(queues = RabbitConfig.CHAT_MESSAGE_PERMISSION_QUEUE)
+    @RabbitListener(queues = ChatRabbitConfig.CHAT_MESSAGE_PERMISSION_QUEUE)
     public void handleChatMessagePermissionEvent(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
         String routingKey = message.getMessageProperties().getReceivedRoutingKey();
 
         try {
-            if (RabbitConfig.CHAT_MESSAGE_PERMISSION_UPSERTED_ROUTING_KEY.equals(routingKey)) {
+            if (ChatRabbitConfig.CHAT_MESSAGE_PERMISSION_UPSERTED_ROUTING_KEY.equals(routingKey)) {
                 ChatMessagePermissionUpsertedEvent event = objectMapper.readValue(message.getBody(), ChatMessagePermissionUpsertedEvent.class);
                 permissionService.upsertPermission(event.chatId(), event.userId(), event.canDeleteAnyMessages());
                 channel.basicAck(deliveryTag, false);
                 return;
             }
 
-            if (RabbitConfig.CHAT_MESSAGE_PERMISSION_DELETED_ROUTING_KEY.equals(routingKey)) {
+            if (ChatRabbitConfig.CHAT_MESSAGE_PERMISSION_DELETED_ROUTING_KEY.equals(routingKey)) {
                 ChatMessagePermissionDeletedEvent event = objectMapper.readValue(message.getBody(), ChatMessagePermissionDeletedEvent.class);
                 permissionService.deletePermission(event.chatId(), event.userId());
                 channel.basicAck(deliveryTag, false);
