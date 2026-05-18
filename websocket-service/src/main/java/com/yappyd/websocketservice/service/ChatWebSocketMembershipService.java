@@ -32,4 +32,9 @@ public class ChatWebSocketMembershipService {
     public List<UUID> findUserIdsSharingChatsWithUserId(UUID userId) {
         return membershipRepository.findUserIdsSharingChatsWithUserId(userId);
     }
+
+    @Transactional
+    public void deleteMembershipsByChatId(UUID chatId) {
+        membershipRepository.deleteAllByChatId(chatId);
+    }
 }

@@ -8,12 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public interface ChatWebSocketMembershipRepository extends JpaRepository<ChatWebSocketMembership, ChatWebSocketMembershipId> {
-
-    boolean existsByIdChatIdAndIdUserId(UUID chatId, UUID userId);
 
     @Modifying
     @Query(value = """
@@ -36,13 +33,20 @@ public interface ChatWebSocketMembershipRepository extends JpaRepository<ChatWeb
     List<UUID> findUserIdsByChatId(UUID chatId);
 
     @Query("""
-        SELECT DISTINCT m.id.userId
-        FROM ChatWebSocketMembership m
-        WHERE m.id.chatId IN (
-            SELECT own.id.chatId
-            FROM ChatWebSocketMembership own
-            WHERE own.id.userId = :userId
-        )
-        """)
+            SELECT DISTINCT m.id.userId
+            FROM ChatWebSocketMembership m
+            WHERE m.id.chatId IN (
+                SELECT own.id.chatId
+                FROM ChatWebSocketMembership own
+                WHERE own.id.userId = :userId
+            )
+            """)
     List<UUID> findUserIdsSharingChatsWithUserId(UUID userId);
+
+    @Modifying
+    @Query("""
+        DELETE FROM ChatWebSocketMembership m
+        WHERE m.id.chatId = :chatId
+        """)
+    int deleteAllByChatId(@Param("chatId") UUID chatId);
 }
